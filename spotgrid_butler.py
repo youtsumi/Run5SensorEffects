@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python
 """
 ITL R02-S02 spot projector data analysis
@@ -31,6 +32,7 @@ from mixcoatl.sourcegrid import DistortedGrid
 from astropy.stats import mad_std
 from astropy.stats import SigmaClip
 from scipy.optimize import curve_fit
+import progressbar
 #### YU
 
 
@@ -117,8 +119,9 @@ class SpotgridCatalog():
         dg1_arr   = np.empty((self.spot_size, self.num_catalogs))
         dg2_arr   = np.empty((self.spot_size, self.num_catalogs))
 
-        for i, ref in enumerate(self.catalog_refs):
-            print(f'Loading catalog {i+1}/{self.num_catalogs}.')
+        for i, ref in progressbar.progressbar(enumerate(self.catalog_refs), redirect_stdout=True):       
+#        for i, ref in enumerate(self.catalog_refs):
+#            print(f'Loading catalog {i+1}/{self.num_catalogs}.')
             
             catalog = self.butler.get(ref, collections=self.catalog_collection)
             grid = DistortedGrid.from_astropy(catalog.asAstropy())
@@ -317,7 +320,7 @@ class SpotgridCatalog():
 
         self.spot_filter = (
                 (self.xxyy_err < value )
-#                & (self.instFlux_med > 0.9*np.nanmax(self.instFlux_med) )
+                & (self.instFlux_med > 0.2*np.nanmax(self.instFlux_med) )
             )
         
         
