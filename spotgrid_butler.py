@@ -33,6 +33,7 @@ from astropy.stats import mad_std
 from astropy.stats import SigmaClip
 from scipy.optimize import curve_fit
 import progressbar
+from astropy.table import join, Table
 #### YU
 
 
@@ -61,7 +62,7 @@ class SpotgridCatalog():
         animg=self.butler.get(aref,collections=self.calib_collection)
         self.header = animg.getMetadata().toDict()
         self.sensorbay=f'{self.header["RAFTBAY"].lower()}_{self.header["CCDSLOT"].lower()}'
-        self.save=f'tmp/{self.header["RAFTBAY"].lower()}_{self.header["CCDSLOT"].lower()}'
+        self.save=f'tmp/{self.header["RAFTBAY"].lower()}_{self.header["CCDSLOT"].lower()}_{self.header["RUNNUM"]}'
         
         self.spot_size = 49*49
 #        print(self.header["LSST_NUM"][:3], self.header["CCD_MANU"])
@@ -88,10 +89,17 @@ class SpotgridCatalog():
         ## Get calibration table and grid
         self.ref = list(self.registry.queryDatasets('gridCalibration', collections=self.calib_collection))[0]
         self.calib_table = self.butler.get(self.ref, collections=self.calib_collection)
+
+        self.calib_table = join( 
+            Table( [list(range(2401))], names=["spotgrid_index"], dtype=[int] ),
+            self.calib_table,
+            keys="spotgrid_index",
+            join_type="left"
+        )        
         self.calib_grid = DistortedGrid.from_astropy(self.calib_table)
         
         ## Get source catalogs
-        self.catalog_refs = list(self.registry.queryDatasets('gridSpotSrc', collections=self.catalog_collection))#[:200]
+        self.catalog_refs = list(self.registry.queryDatasets('gridSpotSrc', collections=self.catalog_collection,findFirst=True))#[:200]
         self.num_catalogs = len(self.catalog_refs)
     
     def save_data(self):
@@ -119,10 +127,9 @@ class SpotgridCatalog():
         dg1_arr   = np.empty((self.spot_size, self.num_catalogs))
         dg2_arr   = np.empty((self.spot_size, self.num_catalogs))
 
-        for i, ref in progressbar.progressbar(enumerate(self.catalog_refs), redirect_stdout=True):       
-#        for i, ref in enumerate(self.catalog_refs):
+#        for i, ref in progressbar.progressbar(enumerate(self.catalog_refs), redirect_stdout=True):       
+        for i, ref in enumerate(self.catalog_refs):
 #            print(f'Loading catalog {i+1}/{self.num_catalogs}.')
-            
             catalog = self.butler.get(ref, collections=self.catalog_collection)
             grid = DistortedGrid.from_astropy(catalog.asAstropy())
             
@@ -320,7 +327,7 @@ class SpotgridCatalog():
 
         self.spot_filter = (
                 (self.xxyy_err < value )
-                & (self.instFlux_med > 0.2*np.nanmax(self.instFlux_med) )
+                & (self.instFlux_med > 0.5*np.nanmax(self.instFlux_med) )
             )
         
         
